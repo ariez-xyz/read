@@ -1,8 +1,9 @@
 #!/usr/bin/python3
 
-import hashlib
-import sys, os, zipfile
+import hashlib, sys, os, zipfile
+from nturl2path import pathname2url
 import tkinter as tk
+from tkinter import ttk
 from tkinterweb import HtmlFrame
 import xml.etree.ElementTree as ET
 
@@ -12,8 +13,21 @@ windll.shcore.SetProcessDpiAwareness(1) # Fix blurry scaling for HiDPI on Window
 def namespace(el):
     return el.tag.split('}')[0].strip('{')
             
+def child_with_id(id, el):
+    matching_items = el.findall(f".//*[@id='{id}']")
+    if len(matching_items) != 1:
+        print(f"Cannot find manifest item for idref {idref}!")
+        exit(1)
+    return matching_items[0]
+    
+# Get the path to a spine item
+def get_path(idref, manifest):
+    href = child_with_id(idref, manifest).attrib['href']
+    return pathname2url(os.path.join(index_dir, *href.split("/")))
+    
+            
 appdata_dir = (os.path.join(os.getenv("APPDATA"), "read.py"))
-try:
+try: # first launch
     os.mkdir(appdata_dir)
 except FileExistsError:
     pass
@@ -29,53 +43,34 @@ with open(sys.argv[1], "rb") as file:
     except FileExistsError:  # work already done
         pass
 
-with zipfile.ZipFile(sys.argv[1]) as epub:
-    namelist = epub.namelist()
-    files = {name: epub.read(name) for name in namelist} # Unzip into memory
-    root = ET.fromstring(files['META-INF/container.xml'])
+root = ET.parse(os.path.join(cache_path, 'META-INF', 'container.xml'))
 
 # Find .opf file describing the structure of the epub.
 for el in root.findall('.//*[@media-type]'):
     if el.attrib['media-type'] == 'application/oebps-package+xml':
-        index_path = el.attrib['full-path']
+        full_path = el.attrib['full-path']
+        index_dir = os.path.join(cache_path, *full_path.split("/")[:-1])
+        index_path = os.path.join(cache_path, *full_path.split("/"))
 
 if not index_path:
     print("Cannot find path to OPF file in container.xml.")
     exit(1)
     
 # Find manifest and spine
-root = ET.fromstring(files[index_path])
+root = ET.parse(index_path).getroot()
 manifest_el = root.find(f".//{{{namespace(root)}}}manifest")
 spine_el = root.find(f".//{{{namespace(root)}}}spine")
-spine = [x.attrib['idref'] for x in spine_el]
 
-# Get the path for a manifest item identified via idref.
-def get_path(idref, manifest):
-    matching_items = manifest.findall(f".//*[@id='{idref}']")
-    if len(matching_items) != 1:
-        print(f"Cannot find manifest item for idref {idref}!")
-        exit(1)
+spine = [x.attrib['idref'] for x in spine_el] # List of idrefs giving the book contents
+book_title = child_with_id('title', root).text #
 
-    # turn href into absolute path
-    return os.path.dirname(index_path) + "/" + matching_items[0].attrib['href']
-
-# Get the (X)HTML for a spine item.
-def get_html(index):
-    return files[get_path(spine[index], manifest_el)].decode()
-    
 root = tk.Tk()
-frame = HtmlFrame(root, horizontal_scrollbar="auto")
-frame.on_downloading_resource(print)
+root.title(book_title)
+frame = HtmlFrame(root, horizontal_scrollbar="auto", messages_enabled=False)
 
-frame.load_html(get_html(4))
+frame.load_file(get_path(spine[4], manifest_el))
 frame.pack(fill="both", expand=True) #attach the HtmlFrame widget to the parent window
 #with open("ch13.html", encoding='utf-8') as f:
 #    frame.load_html(f.read())
 
 root.mainloop()
-
-# TODO. For loading files, which we unzip into memory. Change utilities.py line ~580
-# download method. The files dict should simply shadow urlopen(). 
-# * Need to figure out how to tell when a local file is referred.
-#   * Lib provides on_downloading_Resource callback, and os.path.relpath can be used to get rid of ../ in the path
-# * Needs the content type for each file, which is given in the opf! So just parse that as well.
