@@ -8,8 +8,9 @@ from tkinterweb import HtmlFrame
 import xml.etree.ElementTree as ET
 
 class Read:
-    def __init__(self):
+    def __init__(self, root):
         self.current_spine_item = 0
+
         self.appdata_dir = (os.path.join(os.getenv("APPDATA"), "read.py"))
         try: # first launch
             os.mkdir(self.appdata_dir)
@@ -27,10 +28,10 @@ class Read:
             except FileExistsError:  # work already done
                 pass
 
-        self.root = ET.parse(os.path.join(self.cache_path, 'META-INF', 'container.xml'))
+        root_el = ET.parse(os.path.join(self.cache_path, 'META-INF', 'container.xml'))
 
         # Find .opf file describing the structure of the epub.
-        for el in self.root.findall('.//*[@media-type]'):
+        for el in root_el.findall('.//*[@media-type]'):
             if el.attrib['media-type'] == 'application/oebps-package+xml':
                 self.full_path = el.attrib['full-path']
                 self.index_dir = os.path.join(self.cache_path, *self.full_path.split("/")[:-1])
@@ -41,20 +42,19 @@ class Read:
             exit(1)
             
         # Find manifest and spine
-        self.root = ET.parse(self.index_path).getroot()
-        self.manifest_el = self.root.find(f".//{{{self.namespace(self.root)}}}manifest")
-        self.spine_el = self.root.find(f".//{{{self.namespace(self.root)}}}spine")
+        root_el = ET.parse(self.index_path).getroot()
+        self.manifest_el = root_el.find(f".//{{{self.namespace(root_el)}}}manifest")
+        self.spine_el = root_el.find(f".//{{{self.namespace(root_el)}}}spine")
 
         self.spine = [x.attrib['idref'] for x in self.spine_el] # List of idrefs giving the book contents
-        self.book_title = self.child_with_id('title', self.root).text #
+        self.book_title = self.child_with_id('title', root_el).text #
 
-        self.root = Tk()
-        self.root.title(self.book_title)
+        root.title(self.book_title)
 
-        self.mainframe = ttk.Frame(self.root, padding="3 3 12 12")
+        self.mainframe = ttk.Frame(root, padding="3 3 12 12")
         self.mainframe.grid(column=0, row=0, sticky=(N, W, E, S))
-        self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(0, weight=1)
+        root.columnconfigure(0, weight=1)
+        root.rowconfigure(0, weight=1)
 
         self.html_frame = HtmlFrame(self.mainframe, horizontal_scrollbar="auto", messages_enabled=False)
         self.html_frame.load_file(self.get_path(self.current_spine_item))
@@ -62,8 +62,9 @@ class Read:
 
         ttk.Button(self.mainframe, text="Prev", command=self.load_prev).grid(column=1, row=2, sticky=W)
         ttk.Button(self.mainframe, text="Next", command=self.load_next).grid(column=2, row=2, sticky=E)
+        root.bind("<Left>", self.load_prev)
+        root.bind("<Right>", self.load_next)
 
-        self.root.mainloop()
 
     def namespace(self, el):
         return el.tag.split('}')[0].strip('{')
@@ -81,12 +82,12 @@ class Read:
         href = self.child_with_id(idref, self.manifest_el).attrib['href']
         return pathname2url(os.path.join(self.index_dir, *href.split("/")))
         
-    def load_prev(self):
+    def load_prev(self, *args):
         if self.current_spine_item > 0:
             self.current_spine_item -= 1
         self.html_frame.load_file(self.get_path(self.current_spine_item))
 
-    def load_next(self):
+    def load_next(self, *args):
         if self.current_spine_item < len(self.spine) - 1:
             self.current_spine_item += 1
         self.html_frame.load_file(self.get_path(self.current_spine_item))
@@ -96,4 +97,6 @@ if __name__ == "__main__":
     from ctypes import windll
     windll.shcore.SetProcessDpiAwareness(1) # Fix blurry scaling for HiDPI on Windows
 
-    Read()
+    root = Tk()
+    Read(root)
+    root.mainloop()
