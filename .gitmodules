@@ -1,0 +1,3 @@
+[submodule "TkinterWeb"]
+	path = TkinterWeb
+	url = https://github.com/ariez-xyz/TkinterWeb
