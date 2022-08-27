@@ -68,7 +68,6 @@ class Read:
 
         #self.print_parsed_metadata() # debug
         self.load_current_item()
-        #self.html_frame.add_css("h1 { text-color: red; }")
 
     def print_parsed_metadata(self):
         print("book:", self.book_title)
@@ -100,14 +99,15 @@ class Read:
         return pathname2url(os.path.join(self.index_dir, *href.split("/")))
         
     # Inverse of get_path: get spine index given path
+    # may return None, which just means the currently opened page won't be added to history 
+    # this happens e.g. if we end up on a webpage
     def get_index(self, path):
-        #idref = self.child_with_id(idref, self.manifest_el).attrib['href']
         for child in self.manifest_el:
             if path in child.attrib['href']:
                 try:
                     return self.spine.index(child.attrib['id'])
-                except ValueError: # returning None just means the currently opened page won't be added to history
-                    return None    # might happen e.g. if we end up on a webpage
+                except ValueError: 
+                    pass    
         
     def load_prev(self):
         if self.current_index() > 0:
@@ -128,6 +128,7 @@ class Read:
     def load_current_item(self):
         #print(self.get_path(self.current_spine_item))
         self.html_frame.load_file(self.get_path(self.current_index()))
+        self.html_frame.add_css("h2 { color: #00FF00; }")
         
     # Callback when a link is clicked.
     def update_current_item(self, url):
