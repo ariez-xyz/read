@@ -5,6 +5,7 @@ from nturl2path import pathname2url
 from tkinter import *
 from tkinter import ttk
 from tkinterweb import HtmlFrame
+import sv_ttk
 import xml.etree.ElementTree as ET
 
 class Read:
@@ -12,43 +13,12 @@ class Read:
         self.history = [0] # Stack maintaining the navigation history of the chapters
 
         self.custom_css = """ 
-            @import 'https://fonts.googleapis.com/css?family=Open+Sans';
-
-            * {
-                -webkit-box-sizing: border-box;
-                box-sizing: border-box;
-            }
-
             body {
                 font-family: 'Open Sans', sans-serif;
                 line-height: 1.75em;
                 font-size: 16px;
                 background-color: #222;
                 color: #aaa;
-            }
-
-            .simple-container {
-                max-width: 675px;
-                margin: 0 auto;
-                padding-top: 70px;
-                padding-bottom: 20px;
-            }
-
-            .simple-print {
-                fill: white;
-                stroke: white;
-            }
-            .simple-print svg {
-                height: 100%;
-            }
-
-            .simple-close {
-                color: white;
-                border-color: white;
-            }
-
-            .simple-ext-info {
-                border-top: 1px solid #aaa;
             }
 
             p {
@@ -97,25 +67,10 @@ class Read:
             li {
                 line-height: 1.5em;
             }
-
-            aside,
-            [class *= "sidebar"],
-            [id *= "sidebar"] {
-                max-width: 90%;
-                margin: 0 auto;
-                border: 1px solid lightgrey;
-                padding: 5px 15px;
-            }
-
-            @media (min-width: 1921px) {
-                body {
-                    font-size: 18px;
-                }
-            }
         """
         
         self.appdata_dir = (os.path.join(os.getenv("APPDATA"), "read.py"))
-        try: # first launch
+        try: # first ever launch: create appdata dir
             os.mkdir(self.appdata_dir)
         except FileExistsError:
             pass
@@ -161,7 +116,10 @@ class Read:
 
         self.html_frame = HtmlFrame(self.mainframe, vertical_scrollbar="true", messages_enabled=False)
         self.html_frame.grid(column=1, row=1)
+        
+        # Set up callbacks
         self.html_frame.on_url_change(self.update_current_item)
+        self.html_frame.on_done_loading(lambda: self.html_frame.add_css(self.custom_css))
 
         ttk.Button(self.mainframe, text="Prev", command=self.load_prev).grid(column=1, row=2, sticky=W)
         ttk.Button(self.mainframe, text="Next", command=self.load_next).grid(column=1, row=2)
@@ -170,8 +128,6 @@ class Read:
         root.bind("<Right>", lambda _: self.load_next())
 
         self.load_current_item()
-        #print(ttk.Style(root).theme_names())
-        #ttk.Style(root).theme_use('default')
 
     def print_parsed_metadata(self): # Debug
         print("book:", self.book_title)
@@ -230,13 +186,11 @@ class Read:
         
     # Load contents of current chapter into HTML frame.
     def load_current_item(self):
-        #print(self.get_path(self.current_spine_item))
+        self.html_frame.add_css(self.custom_css)
         self.html_frame.load_file(self.get_path(self.current_index()))
-        self.html_frame.on_done_loading(lambda: self.html_frame.add_css(self.custom_css))
         
     # Callback when a link is clicked.
     def update_current_item(self, url):
-        #print(self.spine.index(os.path.basename(url)))
         index = self.get_index(os.path.basename(url))
         if self.current_index() != index and index != None:
             self.history.append(index)
@@ -247,8 +201,11 @@ class Read:
 
 if __name__ == "__main__":
     root = Tk()
-    Read(root)
 
+    sv_ttk.use_dark_theme() # Sun Valley dark theme.
+
+    Read(root)
+    
     #####################
     # FIXES FOR WINDOWS #
     #####################
