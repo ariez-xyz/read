@@ -180,7 +180,6 @@ class Read:
     def history_push(self, index):
         if 0 <= index < len(self.spine):
             self.history.append(index)
-        if len(self.history) > 0:
             
     def history_pop(self):
         if len(self.history) > 0:
