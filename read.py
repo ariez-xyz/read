@@ -109,14 +109,14 @@ class Read:
 
         root.title(self.book_title)
 
-        self.html_frame = HtmlFrame(root, vertical_scrollbar="true", messages_enabled=False)
+        self.html_frame = HtmlFrame(root, vertical_scrollbar="auto", messages_enabled=False)
         
         # Set up callbacks
         self.html_frame.on_url_change(self.update_current_item)
         self.html_frame.on_done_loading(lambda: self.html_frame.add_css(self.custom_css))
 
-        prev_btn = ttk.Button(root, text="Prev", command=self.load_prev)
-        next_btn = ttk.Button(root, text="Next", command=self.load_next)
+        prev_btn = ttk.Button(root, text="◀", command=self.load_prev, width=10)
+        next_btn = ttk.Button(root, text="▶", command=self.load_next, width=10)
         back_btn = ttk.Button(root, text="Back", command=self.go_back)
 
         prev_btn.grid(column=1, row=2) 
@@ -128,7 +128,7 @@ class Read:
         root.columnconfigure(2, weight=1)
         root.columnconfigure(3, weight=1)
         root.rowconfigure(1, weight=1)
-        root.rowconfigure(2, weight=0)
+        root.rowconfigure(2, weight=0, pad=10)
 
         root.bind("<Left>", lambda _: self.load_prev())
         root.bind("<Right>", lambda _: self.load_next())
