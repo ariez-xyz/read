@@ -11,6 +11,109 @@ class Read:
     def __init__(self, root):
         self.history = [0] # Stack maintaining the navigation history of the chapters
 
+        self.custom_css = """ 
+            @import 'https://fonts.googleapis.com/css?family=Open+Sans';
+
+            * {
+                -webkit-box-sizing: border-box;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: 'Open Sans', sans-serif;
+                line-height: 1.75em;
+                font-size: 16px;
+                background-color: #222;
+                color: #aaa;
+            }
+
+            .simple-container {
+                max-width: 675px;
+                margin: 0 auto;
+                padding-top: 70px;
+                padding-bottom: 20px;
+            }
+
+            .simple-print {
+                fill: white;
+                stroke: white;
+            }
+            .simple-print svg {
+                height: 100%;
+            }
+
+            .simple-close {
+                color: white;
+                border-color: white;
+            }
+
+            .simple-ext-info {
+                border-top: 1px solid #aaa;
+            }
+
+            p {
+                font-size: 16px;
+            }
+
+            h1 {
+                font-size: 30px;
+                line-height: 34px;
+            }
+
+            h2 {
+                font-size: 20px;
+                line-height: 25px;
+            }
+
+            h3 {
+                font-size: 16px;
+                line-height: 27px;
+                padding-top: 15px;
+                padding-bottom: 15px;
+                border-bottom: 1px solid #D8D8D8;
+                border-top: 1px solid #D8D8D8;
+            }
+
+            hr {
+                height: 1px;
+                background-color: #d8d8d8;
+                border: none;
+                width: 100%;
+                margin: 0px;
+            }
+
+            a[href] {
+                color: #1e8ad6;
+            }
+
+            a[href]:hover {
+                color: #3ba0e6;
+            }
+
+            img {
+                max-width: 100%;
+            }
+
+            li {
+                line-height: 1.5em;
+            }
+
+            aside,
+            [class *= "sidebar"],
+            [id *= "sidebar"] {
+                max-width: 90%;
+                margin: 0 auto;
+                border: 1px solid lightgrey;
+                padding: 5px 15px;
+            }
+
+            @media (min-width: 1921px) {
+                body {
+                    font-size: 18px;
+                }
+            }
+        """
+        
         self.appdata_dir = (os.path.join(os.getenv("APPDATA"), "read.py"))
         try: # first launch
             os.mkdir(self.appdata_dir)
@@ -66,10 +169,11 @@ class Read:
         root.bind("<Left>", lambda _: self.load_prev())
         root.bind("<Right>", lambda _: self.load_next())
 
-        #self.print_parsed_metadata() # debug
         self.load_current_item()
+        #print(ttk.Style(root).theme_names())
+        #ttk.Style(root).theme_use('default')
 
-    def print_parsed_metadata(self):
+    def print_parsed_metadata(self): # Debug
         print("book:", self.book_title)
         print("spine:", self.spine)
         print("manifest.xml:", self.manifest_el)
@@ -128,7 +232,7 @@ class Read:
     def load_current_item(self):
         #print(self.get_path(self.current_spine_item))
         self.html_frame.load_file(self.get_path(self.current_index()))
-        self.html_frame.add_css("h2 { color: #00FF00; }")
+        self.html_frame.on_done_loading(lambda: self.html_frame.add_css(self.custom_css))
         
     # Callback when a link is clicked.
     def update_current_item(self, url):
@@ -136,16 +240,35 @@ class Read:
         index = self.get_index(os.path.basename(url))
         if self.current_index() != index and index != None:
             self.history.append(index)
-        print(self.history)
             
     def current_index(self):
         return self.history[-1]
                 
 
 if __name__ == "__main__":
-    from ctypes import windll
-    windll.shcore.SetProcessDpiAwareness(1) # Fix blurry scaling for HiDPI on Windows
-
     root = Tk()
     Read(root)
+
+    #####################
+    # FIXES FOR WINDOWS #
+    #####################
+
+    import ctypes
+
+    # Fix blurry scaling for HiDPI on Windows
+    ctypes.windll.shcore.SetProcessDpiAwareness(1) 
+
+    # Make the title bar dark, cp. https://gist.github.com/Olikonsti/879edbf69b801d8519bf25e804cec0aa
+    root.update()
+    hwnd = ctypes.windll.user32.GetParent(root.winfo_id())
+    value = ctypes.c_int(2) # Pass 0 here for a white title bar.
+    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(value), ctypes.sizeof(value))
+    # On Win10, above code only works once the window has been resized, so change it and reset it...
+    root.geometry(str(root.winfo_width()+1) + "x" + str(root.winfo_height()+1))
+    root.geometry(str(root.winfo_width()-1) + "x" + str(root.winfo_height()-1))
+
+    #########################
+    # END FIXES FOR WINDOWS #
+    #########################
+
     root.mainloop()
