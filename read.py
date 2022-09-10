@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 
 class Read:
     def __init__(self, root):
-        self.history = [0] # Stack maintaining the navigation history of the chapters
+        self.history = [] # Stack maintaining the navigation history of the chapters
 
         self.custom_css = """ 
             body {
@@ -112,16 +112,16 @@ class Read:
         self.html_frame = HtmlFrame(root, vertical_scrollbar="auto", messages_enabled=False)
         
         # Set up callbacks
-        self.html_frame.on_url_change(self.update_current_item)
+        self.html_frame.on_link_click(self.link_clicked)
         self.html_frame.on_done_loading(lambda: self.html_frame.add_css(self.custom_css))
 
-        prev_btn = ttk.Button(root, text="◀", command=self.load_prev, width=10)
-        next_btn = ttk.Button(root, text="▶", command=self.load_next, width=10)
-        back_btn = ttk.Button(root, text="Back", command=self.go_back)
+        self.prev_btn = ttk.Button(root, text="◀", command=self.load_prev, width=10)
+        self.next_btn = ttk.Button(root, text="▶", command=self.load_next, width=10)
+        self.back_btn = ttk.Button(root, text="Back", command=self.go_back)
 
-        prev_btn.grid(column=1, row=2) 
-        back_btn.grid(column=2, row=2)
-        next_btn.grid(column=3, row=2)
+        self.prev_btn.grid(column=1, row=2) 
+        self.back_btn.grid(column=2, row=2)
+        self.next_btn.grid(column=3, row=2)
         self.html_frame.grid(column=1, row=1, columnspan=3, sticky=(N,S,E,W))
 
         root.columnconfigure(1, weight=1)
@@ -133,7 +133,8 @@ class Read:
         root.bind("<Left>", lambda _: self.load_prev())
         root.bind("<Right>", lambda _: self.load_next())
 
-        self.load_current_item()
+        self.current_index = 0
+        self.load_item(0)
 
     def print_parsed_metadata(self): # Debug
         print("book:", self.book_title)
@@ -167,43 +168,50 @@ class Read:
     # Inverse of get_path: get spine index given path
     # may return None, which just means the currently opened page won't be added to history 
     # this happens e.g. if we end up on a webpage
-    def get_index(self, path):
+    def try_get_index(self, path):
+        path = path.split("#")[0] # Hacky? For links that go to a section, e.g. endnotes.xhtml#note-2
         for child in self.manifest_el:
             if path in child.attrib['href']:
                 try:
                     return self.spine.index(child.attrib['id'])
                 except ValueError: 
                     pass    
+                    
+    def history_push(self, index):
+        if 0 <= index < len(self.spine):
+            self.history.append(index)
+        if len(self.history) > 0:
+            
+    def history_pop(self):
+        if len(self.history) > 0:
+            return self.history.pop()
         
     def load_prev(self):
-        if self.current_index() > 0:
-            self.history.append(self.current_index() - 1)
-        self.load_current_item()
+        self.load_item(self.current_index - 1)
 
     def load_next(self):
-        if self.current_index() < len(self.spine) - 1:
-            self.history.append(self.current_index() + 1)
-        self.load_current_item()
+        self.load_item(self.current_index + 1)
         
     def go_back(self):
-        if len(self.history) > 1:
-            self.history.pop()
-            self.load_current_item()
+        index = self.history_pop()
+        if index != None:
+            self.load_item(index)
         
     # Load contents of current chapter into HTML frame.
-    def load_current_item(self):
-        self.html_frame.add_css(self.custom_css)
-        self.html_frame.load_file(self.get_path(self.current_index()))
+    def load_item(self, index):
+        if 0 <= index < len(self.spine):
+            self.html_frame.add_css(self.custom_css)
+            self.html_frame.load_file(self.get_path(index))
+            self.current_index = index
         
-    # Callback when a link is clicked.
-    def update_current_item(self, url):
-        index = self.get_index(os.path.basename(url))
-        if self.current_index() != index and index != None:
-            self.history.append(index)
+    # Called on each link click
+    def link_clicked(self, url):
+        self.history_push(self.current_index) # Remember current location
+        self.html_frame.load_url(url)
+        # If the link goes to a page in the book, update our current index
+        if (i := self.try_get_index(os.path.basename(url))) != None:
+            self.current_index = i
             
-    def current_index(self):
-        return self.history[-1]
-                
 
 if __name__ == "__main__":
     root = Tk()
