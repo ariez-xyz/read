@@ -109,21 +109,27 @@ class Read:
 
         root.title(self.book_title)
 
-        self.mainframe = ttk.Frame(root, padding="3 3 12 12")
-        self.mainframe.grid(column=0, row=0, sticky=(N, W, E, S))
-        root.columnconfigure(0, weight=1)
-        root.rowconfigure(0, weight=1)
-
-        self.html_frame = HtmlFrame(self.mainframe, vertical_scrollbar="true", messages_enabled=False)
-        self.html_frame.grid(column=1, row=1)
+        self.html_frame = HtmlFrame(root, vertical_scrollbar="true", messages_enabled=False)
         
         # Set up callbacks
         self.html_frame.on_url_change(self.update_current_item)
         self.html_frame.on_done_loading(lambda: self.html_frame.add_css(self.custom_css))
 
-        ttk.Button(self.mainframe, text="Prev", command=self.load_prev).grid(column=1, row=2, sticky=W)
-        ttk.Button(self.mainframe, text="Next", command=self.load_next).grid(column=1, row=2)
-        ttk.Button(self.mainframe, text="Back", command=self.go_back).grid(column=1, row=2, sticky=E)
+        prev_btn = ttk.Button(root, text="Prev", command=self.load_prev)
+        next_btn = ttk.Button(root, text="Next", command=self.load_next)
+        back_btn = ttk.Button(root, text="Back", command=self.go_back)
+
+        prev_btn.grid(column=1, row=2) 
+        back_btn.grid(column=2, row=2)
+        next_btn.grid(column=3, row=2)
+        self.html_frame.grid(column=1, row=1, columnspan=3, sticky=(N,S,E,W))
+
+        root.columnconfigure(1, weight=1)
+        root.columnconfigure(2, weight=1)
+        root.columnconfigure(3, weight=1)
+        root.rowconfigure(1, weight=1)
+        root.rowconfigure(2, weight=0)
+
         root.bind("<Left>", lambda _: self.load_prev())
         root.bind("<Right>", lambda _: self.load_next())
 
